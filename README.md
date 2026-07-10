@@ -6,7 +6,7 @@
 
 ```
 pet-app-common/
-├── .gitignore              # 空目录占位，防止被git追踪
+├── .gitignore              # Git忽略规则
 ├── README.md               # 本说明文件
 ├── docs/                   # 公共文档
 │   ├── requirements/       # 跨项目需求文档
@@ -45,9 +45,23 @@ pet-app-common/
 
 ## Git管理
 
-- **本目录不参与任何项目的git版本管理**
-- 各项目的 `.gitignore` 中已添加说明注释
-- 如需版本控制，可考虑单独创建git仓库
+本目录已进行独立的Git版本管理：
+
+- **远程仓库**: `https://github.com/stevenyjm/pet-app-common.git`
+- **主开发分支**: `yjm`（后续所有提交均提交至此分支）
+- **分支策略**: 日常开发直接在 `yjm` 分支进行，定期同步至 `master` 分支
+
+### 提交规范
+
+1. 切换到 `yjm` 分支：`git checkout yjm`
+2. 添加变更：`git add -A`
+3. 提交变更：`git commit -m "描述变更内容"`
+4. 推送到远程：`git push origin yjm`
+
+### 注意事项
+
+- 各项目的 `.gitignore` 中已排除本目录，避免重复管理
+- 本仓库为独立仓库，不依赖任何父项目
 
 ## TRAE配置
 
