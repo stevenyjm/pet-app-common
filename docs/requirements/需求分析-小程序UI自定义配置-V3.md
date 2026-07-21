@@ -632,45 +632,45 @@ export const TEXT_CONFIG_IDS = {
 
 | 任务编号 | 任务名称 | 详细描述 | 负责人 | 依赖 | 状态 |
 |---------|---------|---------|--------|------|------|
-| F-V3-01 | 首页版权信息配置 | 修改 pages/index/index.vue，底部版权信息动态绑定 texts.copyright.content | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-02 | 设置页面版权信息配置 | 修改 subpk-settings/index.vue，底部版本信息下方添加版权信息，动态绑定 texts.copyright.content | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-03 | 设置页面背景 | 修改 subpk-settings/index.vue，添加动态背景绑定，使用 subPages.about.background，fallback 回退到我的背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-04 | 宠物选项区收起状态背景 | 修改 pages/pet/pet.vue，根据日记录展开/收起状态切换背景，收起状态使用 collapsedBackground | 小程序前端开发 | F-01, F-V2-03 | 📋 待开发 |
-| F-V3-05 | 资讯详情页面背景 | 修改 subpk-news/detail.vue，添加动态背景绑定，fallback 回退到首页背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-06 | 商品详情页面背景 | 修改 pages/product/detail.vue，添加动态背景绑定，fallback 回退到商城背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-07 | 购物车页面背景 | 修改 pages/cart/cart.vue，添加动态背景绑定，fallback 回退到商城背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-08 | 订单详情页面背景 | 修改 subpk-order/detail.vue，添加动态背景绑定，fallback 回退到订单背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-09 | 下单页面背景 | 修改 subpk-order/checkout.vue，添加动态背景绑定，fallback 回退到订单背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-10 | 收货地址页面背景 | 修改 subpk-address/list.vue，添加动态背景绑定，fallback 回退到我的背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-11 | 在线客服页面背景 | 修改 subpk-service/chat.vue，添加动态背景绑定，fallback 回退到我的背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-12 | 日常提醒页面背景 | 修改 subpk-reminder/list.vue，添加动态背景绑定，fallback 回退到宠物背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-13 | 提醒编辑页面背景 | 修改 subpk-reminder/edit.vue，添加动态背景绑定，fallback 回退到宠物背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-14 | 宠物档案页面背景（只读） | 修改 subpk-pet/info.vue，只读模式下使用 subPages.petProfile.readonly.background，fallback 回退到宠物背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-15 | 宠物档案页面背景（编辑） | 修改 subpk-pet/info.vue，编辑模式下使用 subPages.petProfile.edit.background，fallback 回退到宠物背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-16 | 消息中心页面背景 | 修改 pages/message/index.vue，添加动态背景绑定，fallback 回退到我的背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-17 | 用户反馈页面背景 | 修改 subpk-feedback/index.vue，添加动态背景绑定，fallback 回退到我的背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-18 | 我的反馈页面背景 | 修改 subpk-feedback/history.vue，添加动态背景绑定，fallback 回退到我的背景 | 小程序前端开发 | F-01 | 📋 待开发 |
-| F-V3-19 | 配置常量更新 | 更新 constants/miniAppConfig.js，添加 SUB_PAGE_IDS 和 TEXT_CONFIG_IDS 常量 | 小程序前端开发 | 无 | 📋 待开发 |
-| F-V3-20 | 工具层更新 | 更新 utils/themeAssets.js，扩展默认配置和合并逻辑支持 texts 和 subPages 配置项 | 小程序前端开发 | F-V3-19 | 📋 待开发 |
+| F-V3-01 | 首页版权信息配置 | 修改 pages/index/index.vue，底部版权信息动态绑定 texts.copyright.content | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-02 | 设置页面版权信息配置 | 修改 subpk-settings/index.vue，底部版本信息下方添加版权信息，动态绑定 texts.copyright.content | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-03 | 设置页面背景 | 修改 subpk-settings/index.vue，添加动态背景绑定，使用 subPages.about.background，fallback 回退到我的背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-04 | 宠物选项区收起状态背景 | 修改 pages/pet/pet.vue，根据日记录展开/收起状态切换背景，收起状态使用 collapsedBackground | 小程序前端开发 | F-01, F-V2-03 | ✅ 已完成 |
+| F-V3-05 | 资讯详情页面背景 | 修改 subpk-news/detail.vue，添加动态背景绑定，fallback 回退到首页背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-06 | 商品详情页面背景 | 修改 pages/product/detail.vue，添加动态背景绑定，fallback 回退到商城背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-07 | 购物车页面背景 | 修改 pages/cart/cart.vue，添加动态背景绑定，fallback 回退到商城背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-08 | 订单详情页面背景 | 修改 subpk-order/detail.vue，添加动态背景绑定，fallback 回退到订单背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-09 | 下单页面背景 | 修改 subpk-order/checkout.vue，添加动态背景绑定，fallback 回退到订单背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-10 | 收货地址页面背景 | 修改 subpk-address/list.vue，添加动态背景绑定，fallback 回退到我的背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-11 | 在线客服页面背景 | 修改 subpk-service/chat.vue，添加动态背景绑定，fallback 回退到我的背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-12 | 日常提醒页面背景 | 修改 subpk-reminder/list.vue，添加动态背景绑定，fallback 回退到宠物背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-13 | 提醒编辑页面背景 | 修改 subpk-reminder/edit.vue，添加动态背景绑定，fallback 回退到宠物背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-14 | 宠物档案页面背景（只读） | 修改 subpk-pet/info.vue，只读模式下使用 subPages.petProfile.readonly.background，fallback 回退到宠物背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-15 | 宠物档案页面背景（编辑） | 修改 subpk-pet/info.vue，编辑模式下使用 subPages.petProfile.edit.background，fallback 回退到宠物背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-16 | 消息中心页面背景 | 修改 pages/message/index.vue，添加动态背景绑定，fallback 回退到我的背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-17 | 用户反馈页面背景 | 修改 subpk-feedback/index.vue，添加动态背景绑定，fallback 回退到我的背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-18 | 我的反馈页面背景 | 修改 subpk-feedback/history.vue，添加动态背景绑定，fallback 回退到我的背景 | 小程序前端开发 | F-01 | ✅ 已完成 |
+| F-V3-19 | 配置常量更新 | 更新 constants/miniAppConfig.js，添加 SUB_PAGE_IDS 和 TEXT_CONFIG_IDS 常量 | 小程序前端开发 | 无 | ✅ 已完成 |
+| F-V3-20 | 工具层更新 | 更新 utils/themeAssets.js，扩展默认配置和合并逻辑支持 texts 和 subPages 配置项 | 小程序前端开发 | F-V3-19 | ✅ 已完成 |
 
 ### 6.2 Web 管理端任务
 
 | 任务编号 | 任务名称 | 详细描述 | 负责人 | 依赖 | 状态 |
 |---------|---------|---------|--------|------|------|
-| W-V3-01 | 文本配置选项卡 | 在小程序配置页面新增「文本配置」选项卡，支持版权信息编辑 | Web 前端开发 | W-01 | 📋 待开发 |
-| W-V3-02 | 子页面背景配置选项卡 | 在小程序配置页面新增「子页面背景」选项卡，支持14个子页面背景配置 | Web 前端开发 | W-01, W-05 | 📋 待开发 |
-| W-V3-03 | 宠物选项区背景扩展 | 在页面背景选项卡中，为宠物页面增加收起状态背景配置 | Web 前端开发 | W-V2-01 | 📋 待开发 |
-| W-V3-04 | 预览区扩展 | 更新手机预览组件，支持展示文本配置和子页面背景效果 | Web 前端开发 | W-05 | 📋 待开发 |
-| W-V3-05 | 配置获取逻辑更新 | 更新配置获取逻辑，支持获取 texts 和 subPages 配置项 | Web 前端开发 | B-V3-01 | 📋 待开发 |
-| W-V3-06 | 保存草稿逻辑更新 | 更新保存草稿逻辑，支持保存 texts 和 subPages 配置项 | Web 前端开发 | B-V3-02 | 📋 待开发 |
+| W-V3-01 | 文本配置选项卡 | 在小程序配置页面新增「文本配置」选项卡，支持版权信息编辑 | Web 前端开发 | W-01 | ✅ 已完成 |
+| W-V3-02 | 子页面背景配置选项卡 | 在小程序配置页面新增「子页面背景」选项卡，支持14个子页面背景配置 | Web 前端开发 | W-01, W-05 | ✅ 已完成 |
+| W-V3-03 | 宠物选项区背景扩展 | 在页面背景选项卡中，为宠物页面增加收起状态背景配置 | Web 前端开发 | W-V2-01 | ✅ 已完成 |
+| W-V3-04 | 预览区扩展 | 更新手机预览组件，支持展示文本配置和子页面背景效果 | Web 前端开发 | W-05 | ✅ 已完成 |
+| W-V3-05 | 配置获取逻辑更新 | 更新配置获取逻辑，支持获取 texts 和 subPages 配置项 | Web 前端开发 | B-V3-01 | ✅ 已完成 |
+| W-V3-06 | 保存草稿逻辑更新 | 更新保存草稿逻辑，支持保存 texts 和 subPages 配置项 | Web 前端开发 | B-V3-02 | ✅ 已完成 |
 | W-V3-07 | 联调测试 | 与后端联调，验证新增配置项的获取、保存、发布流程 | Web 前端开发 | W-V3-01~W-V3-06 | 📋 待测试 |
 
 ### 6.3 后端任务
 
 | 任务编号 | 任务名称 | 详细描述 | 负责人 | 依赖 | 状态 |
 |---------|---------|---------|--------|------|------|
-| B-V3-01 | 配置结构扩展 | 更新配置 JSON 结构，支持 texts 和 subPages 配置段，扩展 petSelector.collapsedBackground | 后端开发 | B-01 | 📋 待开发 |
-| B-V3-02 | 配置校验逻辑更新 | 更新配置校验逻辑，支持 texts 和 subPages 配置项格式校验 | 后端开发 | B-V3-01 | 📋 待开发 |
+| B-V3-01 | 配置结构扩展 | 更新配置 JSON 结构，支持 texts 和 subPages 配置段，扩展 petSelector.collapsedBackground | 后端开发 | B-01 | ✅ 已完成 |
+| B-V3-02 | 配置校验逻辑更新 | 更新配置校验逻辑，支持 texts 和 subPages 配置项格式校验 | 后端开发 | B-V3-01 | ✅ 已完成 |
 | B-V3-03 | 联调测试 | 与前端联调，验证新增配置项的接口正确性 | 后端开发 | B-V3-01~B-V3-02 | 📋 待测试 |
 
 ---
