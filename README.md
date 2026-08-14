@@ -13,6 +13,8 @@ pet-app-common/
 │   │   └── *.md            # 涉及多个项目的需求分析文档
 │   ├── api-specs/          # API接口规范
 │   │   └── *.md            # 接口定义、字段规范等
+│   ├── shared-rules/       # 公共规范母版
+│   │   └── *.master.md     # 跨项目规则母版（单一事实源）
 │   └── shared-resources/   # 共享资源文档
 │       └── *.md            # 通用文档、配置说明等
 └── resources/              # 公共资源文件
@@ -65,9 +67,27 @@ pet-app-common/
 
 ## TRAE配置
 
-各项目已配置跨项目规则文件：
-- `pet-app/.trae/rules/cross-project.md`
-- `pet-app-admin-web/.trae/rules/cross-project.md`
-- `pet-app-backend/.trae/rules/cross-project.md`
+### 父级规则（跨项目契约层）
 
-这些规则文件告诉AI助手如何访问公共目录和兄弟项目。
+父级目录 `宠物生鲜电商开发项目/.trae/rules/` 存放跨项目协同规则：
+- `multi-project.md`：跨项目变更顺序契约、三端对齐检查清单、AI 协作行为约束
+
+### 公共规范母版
+
+`pet-app-common/docs/shared-rules/` 存放跨项目规则母版（单一事实源）：
+- `cross-project.master.md`：三端 `cross-project.md` 的共有部分母版
+
+### 项目专属规则
+
+各项目已配置专属规则文件：
+- `pet-app/.trae/rules/cross-project.md`（仅差异部分，引用母版）
+- `pet-app-admin-web/.trae/rules/cross-project.md`（仅差异部分，引用母版）
+- `pet-app-backend/.trae/rules/cross-project.md`（仅差异部分，引用母版）
+- 各项目 `.trae/rules/` 下同时包含 `naming-conventions.md` 和 `docs-conventions.md`
+
+### 使用方式
+
+- 单项目开发：在子项目目录打开工作区，AI 加载项目专属规则
+- 跨项目协同：在父级目录打开工作区，AI 同时加载父级跨项目规则和子项目专属规则
+
+详细方案见 `docs/requirements/多项目统一工作区规则体系建设方案.md`。
