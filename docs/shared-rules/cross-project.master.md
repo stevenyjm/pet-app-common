@@ -110,6 +110,69 @@ CREATE TABLE `order_main` (
 | 项目开发说明 | ✅ 必须（表结构章节） | 后端项目开发说明中的表结构章节 |
 | 开发日志 | ❌ 不强制 | 仅当涉及表结构变更时附带建表语句 |
 
+## 数据库基础字段与逻辑删除规范
+
+> **生效日期**：2026-08-19
+> **适用范围**：本项目（宠物生鲜电商）下所有数据库表，含既有表与新增表。
+> **父级规则**：`../multi-project.md` §8（同源母版，本节为副本，差异以父级为准）。
+> **后端实现侧**：`pet-app-backend/.trae/rules/naming-conventions.md` §2.8。
+
+### 1. 必备字段
+
+任何数据库表（包括字典表、关联表、日志表、配置表）都必须包含以下四类字段：
+
+| 字段类别 | 字段名（强制） | 类型与约束 | 说明 |
+|----------|---------------|------------|------|
+| 主键 | 见 §2 | `BIGINT AUTO_INCREMENT` 或业务主键 | 每张表必须有主键 |
+| 创建时间 | `created_at` | `DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP` | 记录创建时间（北京时间） |
+| 最后更新时间 | `updated_at` | `DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` | 记录最后修改时间 |
+| 逻辑删除标记 | `is_deleted` | `TINYINT NOT NULL DEFAULT 0` | `0`-未删除（默认）；`1`-已逻辑删除 |
+
+> 禁止使用 `create_time` / `update_time` / `createTime` / `updateTime` / `deleted` / `deleted_at` / `is_hidden`（用于软删语义）等替代命名；既有字段需在迁移期收敛为上述标准命名。
+
+### 2. 主键规则
+
+- 单列主键优先：`id` 或 `{实体}_id`（如 `order_id`、`user_id`、`sku_id`）。
+- 联合主键仅用于纯关联表（如 `inventory_real_time`），命名仍遵循 `{实体}_id` 风格。
+- 禁止无主键表。
+
+### 3. 逻辑删除规则
+
+1. **禁止硬删除**：所有表原则上不允许使用 `DELETE FROM ...` 物理删除；删除操作必须更新 `is_deleted = 1`。
+2. **查询过滤**：所有读操作（除非有明确审计/恢复场景）必须带 `is_deleted = 0` 过滤条件。
+3. **业务字段共存**：业务侧的"隐藏"（如 `is_hidden`）、"用户删除"（如 `user_deleted_at`）、"状态软删"（如 `status=0`）等业务字段保留，但**不能替代** `is_deleted` 字段；二者语义不同，并存使用。
+4. **历史 `deleted_at` 字段**：既有表已存在的 `deleted_at`（记录删除时间戳）可保留作为补充信息，但逻辑删除判定以 `is_deleted` 为准。
+5. **`status` 字段不可替代 `is_deleted`**：`status` 表示业务状态枚举（如订单状态、上下架），不参与逻辑删除判定。
+6. **唯一索引兼容**：含唯一索引的表若需支持"删除后重建"，应在唯一索引中加入 `is_deleted` 或对删除记录做唯一键扰动（如拼接 `_del_{id}`）。
+
+### 4. 既有表迁移策略
+
+- 既有表缺少上述字段时，需通过迁移脚本补齐，不得直接重建表。
+- 命名不符（如 `create_time` → `created_at`）的迁移需在 `pet-app-common/docs/api-specs/` 备案变更说明。
+- 迁移完成后需同步更新 `scripts/schema.sql`、Sequelize Model 定义、`scripts/verify-db.js` 校验项。
+
+### 5. 例外场景
+
+仅以下场景可豁免 `is_deleted` 字段（仍需 `id` + `created_at` + `updated_at`）：
+
+- **Token 表**（如 `user_refresh_token`、`admin_refresh_token`）：通过 `revoked_at` 实现撤销语义，删除走物理清理。
+- **审计/流水表**（如 `admin_audit_log`、`inventory_flow`、`payment_log`）：仅追加不删除。
+- **会话消息表**（如 `service_message`、`user_message`）：通过业务状态或归档机制管理。
+
+> 任何豁免需在表 `COMMENT` 或建表语句旁注释说明豁免理由；新增表若主张豁免，需在 PR 评审中明确批准。
+
+### 6. 检查清单
+
+新增/变更表结构时逐项核对：
+
+- [ ] 表包含主键（`id` 或 `{实体}_id`）
+- [ ] 表包含 `created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`
+- [ ] 表包含 `updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`
+- [ ] 表包含 `is_deleted TINYINT NOT NULL DEFAULT 0`
+- [ ] 删除操作走 `UPDATE ... SET is_deleted = 1`，无 `DELETE FROM`
+- [ ] 查询默认带 `is_deleted = 0` 过滤
+- [ ] 若主张豁免 `is_deleted`，已注释说明理由
+
 ## 文档同步规则
 
 当修改涉及多个项目的文档时：
