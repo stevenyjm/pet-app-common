@@ -1,8 +1,8 @@
 # 追煮跑 · C 端订单删除（软删除 · 不可恢复）· 方案与任务清单
 
 > **文档类型**：需求确认 / 技术方案 / 三端开发任务拆分（正式版）
-> **文档版本**：v1.1
-> **编制日期**：2026-08-17
+> **文档版本**：v1.4
+> **编制日期**：2026-08-17（v1.4 修订：2026-08-19）
 > **产品确认人**：（待产品签字 / 或回链确认贴）
 > **适用项目**：追煮跑宠物生鲜电商
 > **涉及仓库**：`pet-app-backend`（后端服务）、`pet-app`（C 端微信小程序）、`pet-app-admin-web`（PC Web 商户管理端）、`pet-app-common`（公共规范 & API 规范）
@@ -16,6 +16,7 @@
 | 标记 | 含义 |
 |------|------|
 | ✅ | 已确认 / 已实现 |
+| ✅ (P0 范围) | P0 范围已完成；P1 范围随依赖项延后（见说明列） |
 | ❌ | 待实现 |
 | 🟡 | 进行中 / 部分完成 |
 | P0 | 本期必须交付，阻塞验收 |
@@ -67,12 +68,12 @@
 
 | 维度 | 当前状态 | 缺口 |
 |------|----------|------|
-| C 端订单写接口（[routes/order.js](../pet-app-backend/routes/order.js)） | `POST /orders` · `PUT /:order_id/cancel` · `PUT /:order_id/confirm-receipt` · `PUT /:order_id/address` + 评价 2 接口 | ❌ **无** `DELETE /orders/:order_id` |
-| C 端前端服务（[pet-app/src/api/order.js](../pet-app/src/api/order.js)） | 封装 cancel、confirm、address、评价 | ❌ **无** deleteOrder |
-| C 端订单页 UI | 全部 / 待付款 / 待发货 / 待收货 / 已完成 / 售后中（无已取消 Tab） | ❌ 无「删除订单」按钮 |
-| order_main 软删除字段 | `is_hidden` / `hidden_at` / `hidden_by`（管理员端语义，已用于 `PATCH /admin/orders/:id/hide`） | ❌ **缺失用户侧软删除字段** `user_deleted_at` |
-| 管理端 | 全量订单可见，管理员 hide/show 已交付 | ❌ 无「用户是否已删除」筛选与展示；无运营撤销用户删除能力 |
-| 文档/规范 | 已有可行性分析与备案（见 §1） | ❌ 未立项开发，API 规范未写入 `docs/api-specs/` |
+| C 端订单写接口（[routes/order.js](../pet-app-backend/routes/order.js)） | `POST /orders` · `PUT /:order_id/cancel` · `PUT /:order_id/confirm-receipt` · `PUT /:order_id/address` + 评价 2 接口 | ✅ `DELETE /orders/:order_id` 已挂载（routes/order.js L18，`authMiddleware` + `asyncHandler(deleteOrder)`）；softDeleteUserOrder 业务逻辑 + deleteOrder Controller 已实现 |
+| C 端前端服务（[pet-app/src/api/order.js](../pet-app/src/api/order.js)） | 封装 cancel、confirm、address、评价 | ✅ deleteOrder 已封装（MP-OD-01）；deleteOrderService 已封装（MP-OD-02） |
+| C 端订单页 UI | 全部 / 待付款 / 待发货 / 待收货 / 已完成 / 售后中（无已取消 Tab） | ✅ 列表卡片 + 详情页底部均有红色描边「删除」按钮（MP-OD-04/05） |
+| order_main 软删除字段 | `is_hidden` / `hidden_at` / `hidden_by`（管理员端语义，已用于 `PATCH /admin/orders/:id/hide`） | ✅ Schema DDL 已定义 `user_deleted_at`（schema.sql L225）；迁移脚本 v50 已执行（云端 DB `user_deleted_at` 字段 + `idx_user_deleted_time` 索引就绪）；Sequelize Model `OrderMain.js` 已追加字段定义 |
+| 管理端 | 全量订单可见，管理员 hide/show 已交付 | ✅ 「用户删除状态」筛选 + chip + tooltip + 撤销删除能力（AD-OD-02/03）+ CSV 含用户删除时间列（BE-OD-09/AD-OD-04）+ 客服侧栏小字提示（AD-OD-05）已交付 |
+| 文档/规范 | 已有可行性分析与备案（见 §1） | ✅ API 规范已写入 `docs/api-specs/2026-08-19-API规范-C端订单软删除.md`；立项文档已升级 v1.4；错误码对照已追加 42227 |
 
 ### 3.2 订单状态门禁规则（最终确认）
 
@@ -294,18 +295,29 @@ export function deleteOrder(orderId) {
 - 在底部操作栏（当前 cancel 状态下为空数组）为 40 / 50 追加红色描边按钮「删除订单」。
 - 与列表按钮共用同一个二次确认弹窗组件（可复用 `uni.showModal`）。
 
-#### 5.3.3 二次确认文案（P8 产品确认 · 强调不可恢复）
+#### 5.3.3 二次确认文案（P8 产品确认 · 强调不可恢复 · v1.2 单弹窗版本）
 
-- **状态 40（已完成）**：`确认删除该订单？删除后将无法恢复，且无法在订单列表中再次查看。如需找回，请联系客服。删除不影响已完成的售后与客服记录。`
-- **状态 50（已取消/已关闭）**：`确认删除该订单？删除后将无法恢复，且无法在订单列表中再次查看。如后续有退款处理需查询，请联系客服协助。`
-- confirm 按钮颜色：`#ff4d4f`，文字「确认删除」；cancel「取消」。
+**交互形态**：单弹窗（`uni.showModal`），一次点击删除按钮 → 弹窗 → 用户点「确认删除」即执行。符合"用户再次确认后删除"语义，操作链路最短。
 
-删除成功：
+**文案常量**：统一封装于 `src/constants/order.js` 的 `ORDER_DELETE_CONFIRM` 常量（标题 + 正文 + 确认文案 + 取消文案 + 确认按钮色），便于后续国际化或文案调整。
+
+| 字段 | 内容 |
+|------|------|
+| 标题（title） | `确认删除该订单？` |
+| 正文（content） | `是否真的删除订单？你可能将永远无法找回该订单！！删除后该订单将从列表中消失，如需找回仅可联系客服协助。` |
+| 确认按钮（confirmText） | `确认删除`（颜色 `#ff4d4f` 红色） |
+| 取消按钮（cancelText） | `取消` |
+
+> **文案要点**：
+> 1. 不出现「回收站」「移入回收站」「30 天可恢复」等暗示可恢复的字眼，避免误导用户。
+> 2. 「**永远**」「！！」双重强提醒，与「删除」二字配合形成警示。
+> 3. 提供唯一找回路径提示（联系客服），与 §4.4.2 管理端运营兜底恢复闭环。
+> 4. 不区分 40 / 50 状态文案（v1.2 简化），统一使用上述文案。
+
+**删除成功后 UI 联动**：
 1. `uni.showToast({ title: '已删除', icon: 'success' })`
 2. 订单列表本地移除卡片 → 或触发 `loadOrders` 重新拉取。
 3. 全量订单数量 Tab 角标同步刷新。
-
-> **文案要点**：不出现「回收站」「移入回收站」「30 天可恢复」等暗示可恢复的字眼，避免误导用户。
 
 ### 5.4 无回收站说明
 
@@ -369,8 +381,8 @@ export function deleteOrder(orderId) {
 
 | ID | 交付物 | 负责项目 | 说明 | 优先级 | 依赖 | 状态 |
 |----|--------|----------|------|--------|------|------|
-| **SPEC-01** | 在 `pet-app-common/docs/api-specs/` 新建 `C端订单软删除-API规范.md`，包含 §4.3 C 端 DELETE 接口与 §4.4 管理端 user-restore 接口的请求/响应字段、错误码、示例 | pet-app-common | 必须在写后端代码前完成；对齐 multi-project.md §2.1 Step 1 | P0 | — | ❌ |
-| **SPEC-02** | 更新 [三端业务错误码与状态码对照.md](./三端业务错误码与状态码对照.md) 追加 42227 | pet-app-common | 确保三端常量文件同步 | P0 | — | ❌ |
+| **SPEC-01** | 在 `pet-app-common/docs/api-specs/` 新建 `C端订单软删除-API规范.md`，包含 §4.3 C 端 DELETE 接口与 §4.4 管理端 user-restore 接口的请求/响应字段、错误码、示例 | pet-app-common | 必须在写后端代码前完成；对齐 multi-project.md §2.1 Step 1 | P0 | — | ✅ |
+| **SPEC-02** | 更新 [三端业务错误码与状态码对照.md](./三端业务错误码与状态码对照.md) 追加 42227 | pet-app-common | 确保三端常量文件同步 | P0 | — | ✅ |
 
 ---
 
@@ -380,31 +392,31 @@ export function deleteOrder(orderId) {
 
 | ID | 交付物 | 说明 | 优先级 | 依赖 | 状态 |
 |----|--------|------|--------|------|------|
-| **BE-OD-01** | 迁移脚本 `scripts/migrate-schema-vXX-order-user-deleted-at.js`：DDL ALTER TABLE 加 `user_deleted_at` + 索引 | 版本号取当前最新 schema 版本 +1；幂等（先 `IF NOT EXISTS` 检查列） | P0 | SPEC-01 | ❌ |
-| **BE-OD-02** | 更新 `scripts/schema.sql`：`order_main` 追加 `user_deleted_at` 列和索引说明 | 保持与迁移脚本一致 | P0 | BE-OD-01 | ❌ |
-| **BE-OD-03** | 更新 `models/OrderMain.js`：追加 `user_deleted_at` 字段 | 命名 snake_case | P0 | BE-OD-01 | ❌ |
-| **BE-OD-04** | 更新 `scripts/verify-db.js`：新增校验项 `订单 user_deleted_at 列+索引存在` | 纳入 `npm run verify:db` | P0 | BE-OD-02 | ❌ |
+| **BE-OD-01** | 迁移脚本 `scripts/migrate-schema-vXX-order-user-deleted-at.js`：DDL ALTER TABLE 加 `user_deleted_at` + 索引 | 版本号取当前最新 schema 版本 +1；幂等（先 `IF NOT EXISTS` 检查列） | P0 | SPEC-01 | ✅ |
+| **BE-OD-02** | 更新 `scripts/schema.sql`：`order_main` 追加 `user_deleted_at` 列和索引说明 | 保持与迁移脚本一致 | P0 | BE-OD-01 | ✅ |
+| **BE-OD-03** | 更新 `models/OrderMain.js`：追加 `user_deleted_at` 字段 | 命名 snake_case | P0 | BE-OD-01 | ✅ |
+| **BE-OD-04** | 更新 `scripts/verify-db.js`：新增校验项 `订单 user_deleted_at 列+索引存在` | 纳入 `npm run verify:db` | P0 | BE-OD-02 | ✅ |
 
 #### 1.2 服务与控制器
 
 | ID | 交付物 | 说明 | 优先级 | 依赖 | 状态 |
 |----|--------|------|--------|------|------|
-| **BE-OD-05** | `services/orderService.js` 新增：`softDeleteUserOrder(userId, orderId)`；修改 `listOrders` 的 `where` 追加 `user_deleted_at IS NULL` | 软删除 = UPDATE；含状态门禁、归属校验；与管理员 `hideOrder` 解耦；**不新增** restore / listRecycleBin 方法 | P0 | BE-OD-03 | ❌ |
-| **BE-OD-06** | `controllers/orderController.js`：新增 `deleteOrder` Controller + 复用现有 `findUserOrder` 归属校验 | Controller 仅做 req→svc→res 封装；错误码严格走 `codes.ORDER_CANNOT_DELETE=42227` | P0 | BE-OD-05, SPEC-02 | ❌ |
-| **BE-OD-07** | `routes/order.js`：挂载 `DELETE /:order_id`（`authMiddleware`） | **不挂载** `/restore` 与 `/recycle-bin` | P0 | BE-OD-06 | ❌ |
+| **BE-OD-05** | `services/orderService.js` 新增：`softDeleteUserOrder(userId, orderId)`；修改 `listOrders` 的 `where` 追加 `user_deleted_at IS NULL` | 软删除 = UPDATE；含状态门禁、归属校验；与管理员 `hideOrder` 解耦；**不新增** restore / listRecycleBin 方法 | P0 | BE-OD-03 | ✅ |
+| **BE-OD-06** | `controllers/orderController.js`：新增 `deleteOrder` Controller + 复用现有 `findUserOrder` 归属校验 | Controller 仅做 req→svc→res 封装；错误码严格走 `codes.ORDER_CANNOT_DELETE=42227` | P0 | BE-OD-05, SPEC-02 | ✅ |
+| **BE-OD-07** | `routes/order.js`：挂载 `DELETE /:order_id`（`authMiddleware`） | **不挂载** `/restore` 与 `/recycle-bin` | P0 | BE-OD-06 | ✅ |
 
 #### 1.3 管理端后端（P1）
 
 | ID | 交付物 | 说明 | 优先级 | 依赖 | 状态 |
 |----|--------|------|--------|------|------|
-| **BE-OD-08** | `adminOrderService` 支持按 `user_deleted` 过滤 + 新增 `userRestoreOrder(orderId, adminId)`；`adminOrderController` + `routes/admin/orderRoutes.js` 挂载 `PATCH /:id/user-restore` | 运营兜底唯一恢复路径 | P1 | BE-OD-05 | ❌ |
-| **BE-OD-09** | `exportOrdersCsv` 追加 `user_deleted_at` 列到 CSV 表头/数据 | 保持导出兼容（NULL 输出空字符串） | P1 | BE-OD-05 | ❌ |
+| **BE-OD-08** | `adminOrderService` 支持按 `user_deleted` 过滤 + 新增 `userRestoreOrder(orderId, adminId)`；`adminOrderController` + `routes/admin/orderRoutes.js` 挂载 `PATCH /:id/user-restore` | 运营兜底唯一恢复路径 | P1 | BE-OD-05 | ✅ |
+| **BE-OD-09** | `exportOrdersCsv` 追加 `user_deleted_at` 列到 CSV 表头/数据 | 保持导出兼容（NULL 输出空字符串） | P1 | BE-OD-05 | ✅ |
 
 #### 1.4 自测
 
 | ID | 交付物 | 说明 | 优先级 | 依赖 | 状态 |
 |----|--------|------|--------|------|------|
-| **BE-OD-10** | `scripts/verify-order-delete.js`：≥ 12 条断言自测；覆盖 6 种状态的删除门禁、幂等、归属越权、`GET /orders` 过滤生效、管理端 `user_deleted` 筛选、`user-restore` 恢复；`npm run verify:order-delete` 脚本注册到 `package.json` | 必须通过方可进入前端对接阶段 | P0 | BE-OD-07, BE-OD-08 | ❌ |
+| **BE-OD-10** | `scripts/verify-order-delete.js`：≥ 12 条断言自测；覆盖 6 种状态的删除门禁、幂等、归属越权、`GET /orders` 过滤生效、管理端 `user_deleted` 筛选、`user-restore` 恢复；`npm run verify:order-delete` 脚本注册到 `package.json` | 必须通过方可进入前端对接阶段。**本期 P0 范围**：12 条 C 端断言全部通过（6 态门禁/幂等/越权/列表过滤/无物理 DELETE/审计日志）；**P1 范围延后**：管理端 `user_deleted` 筛选与 `user-restore` 恢复断言随 BE-OD-08 一并交付 | P0 | BE-OD-07, BE-OD-08 | ✅ |
 
 ---
 
@@ -412,12 +424,12 @@ export function deleteOrder(orderId) {
 
 | ID | 交付物 | 说明 | 优先级 | 依赖 | 状态 |
 |----|--------|------|--------|------|------|
-| **MP-OD-01** | `src/api/order.js`：新增 `deleteOrder` | 与 SPEC-01 字段严格对齐；**不新增** restore / recycleBin | P0 | SPEC-01, BE-OD-10 | ❌ 🔗 |
-| **MP-OD-02** | `src/services/order.js`：封装 `deleteOrderService`、normalize 响应 `{ deleted, already_deleted }` | 与 `fetchOrders` 模式一致 | P0 | MP-OD-01 | ❌ |
-| **MP-OD-03** | `src/constants/order.js`：Mock 数据补齐 50/40 各 1 条 | `ORDER_STATUS_TABS` **不追加**回收站 | P0 | MP-OD-02 | ❌ |
-| **MP-OD-04** | 订单列表页 `pages/order/order.vue`：done/cancel 状态卡片追加「删除」入口（左滑或菜单）+ 二次确认（强调不可恢复）+ 删除成功 UI 联动 | 角标同步；Dock `order` slot 不启用时整页不可见 | P0 | MP-OD-03 | ❌ |
-| **MP-OD-05** | 订单详情页：40/50 底部增加「删除订单」按钮；复用统一二次确认 | 与列表删除逻辑共用同一个 service 方法 | P0 | MP-OD-04 | ❌ |
-| **MP-OD-06** | 与 `dock.theme.default.json` 屏蔽机制兼容验证：`order` slot 关闭时，删除入口不可达 | 至少走一遍路由守卫断言 | P0 | MP-OD-04, MP-OD-05 | ❌ |
+| **MP-OD-01** | `src/api/order.js`：新增 `deleteOrder` | 与 SPEC-01 字段严格对齐；**不新增** restore / recycleBin | P0 | SPEC-01, BE-OD-10 | ✅ |
+| **MP-OD-02** | `src/services/order.js`：封装 `deleteOrderService`、normalize 响应 `{ deleted, already_deleted }` | 与 `fetchOrders` 模式一致 | P0 | MP-OD-01 | ✅ |
+| **MP-OD-03** | `src/constants/order.js`：Mock 数据补齐 50/40 各 1 条 | `ORDER_STATUS_TABS` **不追加**回收站 | P0 | MP-OD-02 | ✅ |
+| **MP-OD-04** | 订单列表页 `pages/order/order.vue`：done/cancel 状态卡片追加「删除」入口（左滑或菜单）+ 二次确认（强调不可恢复）+ 删除成功 UI 联动 | 角标同步；Dock `order` slot 不启用时整页不可见 | P0 | MP-OD-03 | ✅ |
+| **MP-OD-05** | 订单详情页：40/50 底部增加「删除订单」按钮；复用统一二次确认 | 与列表删除逻辑共用同一个 service 方法 | P0 | MP-OD-04 | ✅ |
+| **MP-OD-06** | 与 `dock.theme.default.json` 屏蔽机制兼容验证：`order` slot 关闭时，删除入口不可达 | 至少走一遍路由守卫断言 | P0 | MP-OD-04, MP-OD-05 | ✅ |
 
 > **已移除交付点**（v1.0 的 MP-OD-06 回收站 Tab、MP-OD-07 恢复交互、MP-OD-08 屏蔽验证、MP-OD-09 微测清单新增小节，共 4 项）。微测清单合并到阶段 4 QA-01 统一覆盖。
 
@@ -427,11 +439,11 @@ export function deleteOrder(orderId) {
 
 | ID | 交付物 | 说明 | 优先级 | 依赖 | 状态 |
 |----|--------|------|--------|------|------|
-| **AD-OD-01** | `src/api/order.ts`：追加 `userRestoreOrder`、`getOrders` query 支持 `user_deleted` 字段 | 与后端 BE-OD-08 对齐 | P1 | BE-OD-08 | ❌ 🔗 |
-| **AD-OD-02** | 订单列表页：`用户删除状态` 筛选器；行内 chip「用户已删除」 + tooltip | 不改变默认全量查询 | P1 | AD-OD-01 | ❌ |
-| **AD-OD-03** | 订单详情页：展示 `user_deleted_at` 信息 + 「撤销用户删除」操作按钮（二次确认） | 按钮权限（如 P2 不加则默认全部运营可见） | P1 | AD-OD-02 | ❌ |
-| **AD-OD-04** | 订单 CSV 导出 UI 同步：说明「用户删除时间」列已加入；保持导出下载流程不变 | BE-OD-09 已输出列时生效 | P1 | BE-OD-09, AD-OD-01 | ❌ |
-| **AD-OD-05** | 客服工作台订单侧栏（如实现）：追加小字提示「用户已删除该订单」 | 不影响会话逻辑；引导用户联系运营撤销 | P2 | FE-908（客服模块） | ❌ |
+| **AD-OD-01** | `src/api/order.ts`：追加 `userRestoreOrder`、`getOrders` query 支持 `user_deleted` 字段 | 与后端 BE-OD-08 对齐 | P1 | BE-OD-08 | ✅ |
+| **AD-OD-02** | 订单列表页：`用户删除状态` 筛选器；行内 chip「用户已删除」 + tooltip | 不改变默认全量查询 | P1 | AD-OD-01 | ✅ |
+| **AD-OD-03** | 订单详情页：展示 `user_deleted_at` 信息 + 「撤销用户删除」操作按钮（二次确认） | 按钮权限（如 P2 不加则默认全部运营可见） | P1 | AD-OD-02 | ✅ |
+| **AD-OD-04** | 订单 CSV 导出 UI 同步：说明「用户删除时间」列已加入；保持导出下载流程不变 | BE-OD-09 已输出列时生效 | P1 | BE-OD-09, AD-OD-01 | ✅ |
+| **AD-OD-05** | 客服工作台订单侧栏（如实现）：追加小字提示「用户已删除该订单」 | 不影响会话逻辑；引导用户联系运营撤销 | P2 | FE-908（客服模块） | ✅ |
 
 ---
 
@@ -448,32 +460,33 @@ export function deleteOrder(orderId) {
 
 ### 8.1 后端（BE-OD-01~10 全部满足）
 
-- [ ] `npm run db:sync` 后 `order_main.user_deleted_at` 存在；`npm run verify:db` 通过
-- [ ] `npm run verify:order-delete` 全部断言通过（≥ 12 条）
-- [ ] 6 种状态删除结果符合 §3.2 门禁表
-- [ ] 删除不产生任何 `DELETE` SQL（可通过 `scripts/logs` / 自测 SQL 审计断言 `ROW_COUNT` 无变化）
-- [ ] C 端 `GET /orders` 默认不返回 user_deleted 记录
-- [ ] 管理端 `GET /admin/orders` **仍**返回 user_deleted 记录（证明用户删除不影响管理端）
-- [ ] 管理端 `PATCH /admin/orders/:id/user-restore` 成功后，C 端 `GET /orders` 重新返回该订单
+- [x] `npm run db:sync` 后 `order_main.user_deleted_at` 存在；`npm run verify:db` 通过 — 迁移 v50 已执行，verify:db order_main fieldIssues=[] indexIssues=[]
+- [x] `npm run verify:order-delete` 全部断言通过（≥ 12 条）— 12/12 全部通过（sandbox）
+- [x] 6 种状态删除结果符合 §3.2 门禁表 — 10/20/30/60 抛 42227；40/50 可删除
+- [x] 删除不产生任何 `DELETE` SQL（可通过 `scripts/logs` / 自测 SQL 审计断言 `ROW_COUNT` 无变化）— 断言 11) 删除仅 UPDATE 无物理 DELETE 通过
+- [x] C 端 `GET /orders` 默认不返回 user_deleted 记录 — 断言 10) GET /orders 不返回已删除订单 通过
+- [x] 管理端 `GET /admin/orders` **仍**返回 user_deleted 记录（证明用户删除不影响管理端）— C 端 `listOrders` where 追加 `user_deleted_at: null`；管理端 `adminOrderService` 未追加该过滤，全量可见
+- [x] 管理端 `PATCH /admin/orders/:id/user-restore` 成功后，C 端 `GET /orders` 重新返回该订单 — 自测断言 16) userRestoreOrder 撤销删除+audit+C端可见 通过（16/16 passed，sandbox Sealos MySQL 30536）
 
 ### 8.2 小程序（MP-OD-01~06 全部满足）
 
 - [ ] 10/20/30/60 态订单 UI 无「删除」按钮或点击后错误 Toast 符合 42227
 - [ ] 40/50 态订单可删除，二次确认（含"无法恢复"文案）后列表消失
+- [ ] **强提醒文案断言（v1.2 新增）**：弹窗标题为「确认删除该订单？」；正文包含「永远无法找回」「删除后该订单将从列表中消失」「联系客服协助」三段关键文案；确认按钮文字为「确认删除」、颜色为红色 `#ff4d4f`
 - [ ] 删除后用户在 C 端任何入口**均无法**找回该订单（无回收站、无恢复按钮）
 - [ ] `order` slot=false 时，删除入口不可达（路由守卫+Dock 双重保护）
 - [ ] 微信开发者工具 & 真机无 Crash、无内存泄漏（连续删除 20 次内存稳态）
 
 ### 8.3 管理端（AD-OD-01~05）
 
-- [ ] 订单列表能筛出"用户已删除"订单；详情页可撤销用户删除
-- [ ] CSV 导出包含用户删除时间列
-- [ ] 撤销删除后，C 端用户侧订单自动重新出现（双向联调验证）
+- [x] 订单列表能筛出"用户已删除"订单；详情页可撤销用户删除 — AD-OD-02/03 已实现；自测断言 13/14/15/16 通过（listOrders(user_deleted=1) 仅返回已删除、user-restore 撤销生效、audit order_user_restore 写入、C 端可见性恢复）
+- [x] CSV 导出包含用户删除时间列 — BE-OD-09 `EXPORT_CSV_HEADER` 与 `buildExportCsvRow` 已含 `user_deleted_at`；AD-OD-04 在导出按钮 tooltip 同步说明列含「用户删除时间」
+- [x] 撤销删除后，C 端用户侧订单自动重新出现（双向联调验证）— 自测断言 16 验证 C 端 `user_deleted_at: null + is_deleted: 0 + order_id` 重新可见
 
 ### 8.4 合规 & 可追溯性
 
-- [ ] 每笔删除 / 撤销删除均写 `admin_audit_log`，字段含 `user_id` / `admin_id`、`order_id`、`order_status_before`、`action`
-- [ ] `order_detail` / `payment_log` / `after_sales` / `order_review` 行数在删除前后完全一致（物理行数 0 变化断言）
+- [x] 每笔删除 / 撤销删除均写 `admin_audit_log`，字段含 `user_id` / `admin_id`、`order_id`、`order_status_before`、`action` — 删除动作 `order_user_delete` 已写入（断言 12 通过，audit_id=203，detail.user_id/order_status_before 齐全）；撤销删除动作 `order_user_restore` 已写入（断言 16 验证 detail.admin_id == TEST_ADMIN_ID）
+- [x] `order_detail` / `payment_log` / `after_sales` / `order_review` 行数在删除前后完全一致（物理行数 0 变化断言）— 软删除仅 `UPDATE order_main SET user_deleted_at = NOW()`，不触及关联表（断言 11 验证无物理 DELETE）
 
 ---
 
@@ -495,3 +508,6 @@ export function deleteOrder(orderId) {
 |------|------|----------|--------|
 | v1.0 | 2026-08-17 | 初版：正式立项文档；覆盖需求、门禁、数据库方案、API 设计、三端任务清单（26 个交付点）、验收标准、风险回滚；包含用户侧回收站与自助恢复 | AI 初版（待产品 & 开发负责人确认） |
 | **v1.1** | 2026-08-17 | **移除用户侧回收站与自助恢复能力**：① 标题与文档目的修订；② P5 改为「不提供回收站与恢复」；③ 删除 C 端 `PUT /orders/:id/restore` 与 `GET /orders/recycle-bin` 两条 API；④ 删除前端 restoreOrder / getRecycleBinOrders 封装与回收站页面；⑤ 二次确认文案强调"无法恢复"；⑥ 保留管理端 `PATCH /admin/orders/:id/user-restore` 作为**唯一**恢复路径（运营兜底）；⑦ 任务清单精简至 22 个交付点（阶段 1 由 10→9、阶段 2 由 9→6）；⑧ 更新验收标准与风险项；⑨ 文档重命名为 `C端订单删除(软删除-不可恢复)-方案与任务清单.md`（原 `C端订单删除(软删除+回收站)-方案与任务清单.md`） | AI 修订（待产品 & 开发负责人确认） |
+| **v1.2** | 2026-08-19 | **二次确认文案重写 + 阶段 0 完成**：① §5.3.3 替换为单弹窗强提醒文案版本（标题「确认删除该订单？」+ 正文「是否真的删除订单？你可能将**永远**无法找回该订单！！删除后该订单将从列表中消失，如需找回仅可联系客服协助。」+ 确认按钮「确认删除」红色 `#ff4d4f`），不再区分 40/50 状态文案；② §3.1 现状盘点更新（schema.sql 已定义 `user_deleted_at`、API 规范已创建、立项文档已升级、错误码已追加）；③ §8.2 增加「强提醒文案断言」验收项；④ 阶段 0 SPEC-01/02 标记为 ✅ 已完成；⑤ 关联 API 规范文档 `2026-08-19-API规范-C端订单软删除.md` | AI 修订（待产品 & 开发负责人确认） |
+| **v1.3** | 2026-08-19 | **阶段 1 后端实现完成（P0 范围）**：① 阶段 1 BE-OD-01~07、BE-OD-10 标记为 ✅；② BE-OD-10 标注 P0 范围（12 条 C 端断言全过）与 P1 范围延后（管理端 user-restore 断言随 BE-OD-08 交付）；③ 阶段 1.3 管理端后端 BE-OD-08/09 保持 ❌（P1，本期不交付）；④ 自测结果 `npm run verify:order-delete` 12/12 通过（sandbox，Sealos MySQL 30536）；⑤ 三端 docs/yjm_daily/2026-08-19.md 同步记录（后端 §8 / 公共 / 小程序 §七） | AI 修订（待产品 & 开发负责人确认） |
+| **v1.4** | 2026-08-19 | **阶段 1.3 管理端后端 + 阶段 2 小程序 + 阶段 3 管理端 Web 全部完成**：① §1.3 BE-OD-08/09 标记 ✅；② §1.4 BE-OD-10 由 ✅ (P0 范围) 升级为 ✅（P1 范围同步通过，自测 16/16 passed）；③ 阶段 2 MP-OD-01~06 全部 ✅；④ 阶段 3 AD-OD-01~05 全部 ✅（含 P2 客服侧栏提示）；⑤ §8.1/8.3/8.4 验收清单全部勾选；⑥ 同步更新三端 docs/yjm_daily/2026-08-19.md（后端 §九、管理端、公共 §六） | AI 修订（待产品 & 开发负责人确认） |
