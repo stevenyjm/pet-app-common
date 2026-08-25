@@ -112,10 +112,11 @@ CREATE TABLE `order_main` (
 
 ## 数据库基础字段与逻辑删除规范
 
-> **生效日期**：2026-08-19
+> **生效日期**：2026-08-24（v2.0，基于数据库表重构与数据服务优化需求修订）
 > **适用范围**：本项目（宠物生鲜电商）下所有数据库表，含既有表与新增表。
 > **父级规则**：`../multi-project.md` §8（同源母版，本节为副本，差异以父级为准）。
 > **后端实现侧**：`pet-app-backend/.trae/rules/naming-conventions.md` §2.8。
+> **需求来源**：`pet-app-common/docs/requirements/2026-08-24-需求-数据库表重构与数据服务优化.md`
 
 ### 1. 必备字段
 
@@ -123,18 +124,26 @@ CREATE TABLE `order_main` (
 
 | 字段类别 | 字段名（强制） | 类型与约束 | 说明 |
 |----------|---------------|------------|------|
-| 主键 | 见 §2 | `BIGINT AUTO_INCREMENT` 或业务主键 | 每张表必须有主键 |
-| 创建时间 | `created_at` | `DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP` | 记录创建时间（北京时间） |
-| 最后更新时间 | `updated_at` | `DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` | 记录最后修改时间 |
+| 主键 | 见 §2 | 业务主键（`VARCHAR(n)`），禁止 `BIGINT AUTO_INCREMENT` 逻辑主键 | 每张表必须有主键 |
+| 创建时间 | `create_time` | `DATETIME NOT NULL`（无 `DEFAULT CURRENT_TIMESTAMP`，由后端主动推送） | 记录创建时间（北京时间，格式 `yyyy-MM-dd HH:mm:ss`） |
+| 最后修改时间 | `last_modified_time` | `DATETIME NOT NULL`（无 `DEFAULT CURRENT_TIMESTAMP`、无 `ON UPDATE CURRENT_TIMESTAMP`，由后端主动推送） | 记录最后修改时间（北京时间，格式 `yyyy-MM-dd HH:mm:ss`） |
 | 逻辑删除标记 | `is_deleted` | `TINYINT NOT NULL DEFAULT 0` | `0`-未删除（默认）；`1`-已逻辑删除 |
 
-> 禁止使用 `create_time` / `update_time` / `createTime` / `updateTime` / `deleted` / `deleted_at` / `is_hidden`（用于软删语义）等替代命名；既有字段需在迁移期收敛为上述标准命名。
+> 禁止使用 `created_at` / `updated_at` / `create_time` / `update_time`（除 `create_time` / `last_modified_time` 外）/ `deleted` / `deleted_at` / `is_hidden`（用于软删语义）等替代命名；既有字段需在迁移期收敛为上述标准命名。
+> **时间字段不由数据库自动创建和更新**：建表语句中 `create_time` 与 `last_modified_time` 不得使用 `DEFAULT CURRENT_TIMESTAMP` 与 `ON UPDATE CURRENT_TIMESTAMP`；时间字段的写入与更新由后端服务在业务逻辑中主动推送（创建时写入 `create_time`，更新时写入 `last_modified_time`）。
 
 ### 2. 主键规则
 
-- 单列主键优先：`id` 或 `{实体}_id`（如 `order_id`、`user_id`、`sku_id`）。
-- 联合主键仅用于纯关联表（如 `inventory_real_time`），命名仍遵循 `{实体}_id` 风格。
+- **强制业务主键**：所有表（含既有表与新增表）必须使用具有明确业务含义的字段作为主键，禁止使用 `BIGINT AUTO_INCREMENT` 逻辑主键。
+- 主键类型为 `VARCHAR(n)`，长度根据实际业务编码规则预留余量。
+- 业务编码生成规则（由用户指定）：
+  - 用户编码 `user_code`：格式 `U00000001`（前缀 `U` + 8 位数字），字段类型建议 `VARCHAR(16)`。
+  - 宠物编码 `pet_code`：格式 `UP0001`（前缀 `UP` + 4 位数字），字段类型建议 `VARCHAR(16)`。
+  - 订单编码 `order_code`：格式 `yyyyMMdd` + 4 位流水号（如 `202608250001`），字段类型建议 `VARCHAR(20)`。
+  - 其他实体业务主键格式：**在实际确定数据库表字段时，由用户询问决策**（包括字段长度预留、并发安全方案等）。
+- 联合主键仅用于纯关联表（如 `inventory_real_time`），命名仍遵循业务编码风格。
 - 禁止无主键表。
+- **既有 102 张表主键改造**：既有使用 `BIGINT AUTO_INCREMENT` 逻辑主键的表，需全量改造为业务主键；改造需按业务模块分批推进，每批配套数据迁移脚本（老 ID → 新 code 映射与回填）、API 兼容方案（双写过渡期）、回滚预案。
 
 ### 3. 逻辑删除规则
 
@@ -144,33 +153,76 @@ CREATE TABLE `order_main` (
 4. **历史 `deleted_at` 字段**：既有表已存在的 `deleted_at`（记录删除时间戳）可保留作为补充信息，但逻辑删除判定以 `is_deleted` 为准。
 5. **`status` 字段不可替代 `is_deleted`**：`status` 表示业务状态枚举（如订单状态、上下架），不参与逻辑删除判定。
 6. **唯一索引兼容**：含唯一索引的表若需支持"删除后重建"，应在唯一索引中加入 `is_deleted` 或对删除记录做唯一键扰动（如拼接 `_del_{id}`）。
+7. **`is_deleted` 不作单列索引**：禁止对 `is_deleted` 字段单独建索引（TINYINT 选择性低，单列索引无意义）；既有 `idx_is_deleted` 单列索引需在迁移期移除。如需提升"过滤未删除记录"查询性能，应改用联合索引（如 `(is_deleted, ...高频查询字段)`）。
 
-### 4. 既有表迁移策略
+### 4. 字段命名规则
 
-- 既有表缺少上述字段时，需通过迁移脚本补齐，不得直接重建表。
-- 命名不符（如 `create_time` → `created_at`）的迁移需在 `pet-app-common/docs/api-specs/` 备案变更说明。
+1. **snake_case 统一**：数据表名、字段名、API 路径参数、请求/响应字段统一使用 `snake_case`。
+2. **字段表源前缀（仅易混淆字段）**：仅在联表查询时无法区分表源与语义的字段需加表源前缀：
+   - `status` → `{entity}_status`（如 `pet_status`、`order_status`）
+   - `name` → `{entity}_name`（如 `pet_name`、`product_name`）
+   - 其他易混淆字段（如 `amount`、`quantity`、`reason`、`description`）按需加前缀
+   - **通用字段保留原名**：`phone`、`email`、`avatar_url`、`created_at`/`create_time` 等通用字段不加表源前缀
+3. **时间字段命名**：统一使用 `create_time` / `last_modified_time`，由后端主动推送（见 §1）。
+
+### 5. CONSTRAINT 约束规则
+
+- **禁止使用 CONSTRAINT 约束**：数据表中不进行 `CONSTRAINT` 约束（含外键约束 `FOREIGN KEY`、检查约束 `CHECK` 等），该约束迁移至后端服务进行实现。
+- **既有 CONSTRAINT 移除**：既有 80+ 处外键约束需全量移除；移除前必须先在后端服务补充引用完整性校验（如 `order_main.user_code` 必须存在于 `user_account`）、级联删除/更新逻辑（如删除 `pet` 时先处理 `pet_owner` 等子表）。
+- 移除需按业务模块分批推进，每批配套后端引用完整性校验实现。
+
+### 6. TINYINT 索引策略
+
+- **通常不对 TINYINT 类型字段作索引**：TINYINT 选择性低，单列索引意义不大。
+- 例外：联合索引中包含 TINYINT（如 `(user_code, order_status)`）是允许的，TINYINT 不应作为联合索引首列。
+- `is_deleted` 单列索引禁止（见 §3.7）。
+
+### 7. COMMENT 规范
+
+- **建表语句必须补充 COMMENT**：表级 `COMMENT` 与每个字段的 `COMMENT` 均不可省略。
+- 字段 `COMMENT` 需体现字段语义；枚举型字段需在 `COMMENT` 中标注取值映射（如 `'订单状态：10-待支付, 20-待发货'`）。
+
+### 8. TEXT 与 JSON 类型规范
+
+- **避免使用 TEXT 类型**：数据库字段尽量不使用 `TEXT`（含 `LONGTEXT`/`MEDIUMTEXT`/`TINYTEXT`）类型；短文本改用 `VARCHAR(n)`，富文本/快照类评估子表或外部存储。
+- **避免使用 JSON 类型**：数据库字段尽量不使用 `JSON` 类型，亦尽量不使用"以 JSON 为内容格式的字符串"（如 `VARCHAR`/`TEXT` 存储 JSON 文本，命名常为 `*_json`、`content_json`、`extra_json`、`config_json` 等）；数组类改子表，结构化对象改扁平字段或子表。
+- **分表确认机制**：若因避免使用 `TEXT`/`JSON` 导致单表字段过多或单行数据过大而需要分表，**必须先向用户询问确认分表方案**，不得擅自拆分。
+- **既有 TEXT/JSON 改造**：约 67 处字段需评估替代方案，分批改造；**该规范下的相关需求变更涉及范围大，必须由用户进行评估、评审、决策后进行**。
+- **豁免候选**：审计/流水表的动态详情字段（如 `admin_audit_log.detail_json`、`cron_task_execution_log.result_summary`）、微信响应快照字段（如 `refund_record.extra_json`）建议豁免（结构由第三方决定，扁平化成本高）。
+
+### 9. 既有表迁移策略
+
+- 既有表缺少上述字段或不符上述规则时，需通过迁移脚本补齐/改造，不得直接重建表。
+- 命名不符（如 `created_at` → `create_time`、`updated_at` → `last_modified_time`）的迁移需在 `pet-app-common/docs/api-specs/` 备案变更说明。
 - 迁移完成后需同步更新 `scripts/schema.sql`、Sequelize Model 定义、`scripts/verify-db.js` 校验项。
+- **既有表全量改造范围**：102 张表主键改造、95 张表时间字段命名与维护方式改造、60+ 字段表源前缀改造、50+ 张表 CONSTRAINT 移除、约 23 处 COMMENT 补齐、约 67 处 TEXT/JSON 改造、14+ 张表 `is_deleted` 单列索引移除。
 
-### 5. 例外场景
+### 10. 例外场景
 
-仅以下场景可豁免 `is_deleted` 字段（仍需 `id` + `created_at` + `updated_at`）：
+仅以下场景可豁免 `is_deleted` 字段（仍需主键 + `create_time` + `last_modified_time`）：
 
 - **Token 表**（如 `user_refresh_token`、`admin_refresh_token`）：通过 `revoked_at` 实现撤销语义，删除走物理清理。
-- **审计/流水表**（如 `admin_audit_log`、`inventory_flow`、`payment_log`）：仅追加不删除。
+- **审计/流水表**（如 `admin_audit_log`、`inventory_flow`、`payment_log`、`user_login_log`、`user_email_send_log`、`user_browse_log`、`user_sms_log`）：仅追加不删除。
 - **会话消息表**（如 `service_message`、`user_message`）：通过业务状态或归档机制管理。
 
 > 任何豁免需在表 `COMMENT` 或建表语句旁注释说明豁免理由；新增表若主张豁免，需在 PR 评审中明确批准。
 
-### 6. 检查清单
+### 11. 检查清单
 
 新增/变更表结构时逐项核对：
 
-- [ ] 表包含主键（`id` 或 `{实体}_id`）
-- [ ] 表包含 `created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`
-- [ ] 表包含 `updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`
+- [ ] 表包含业务主键（`{entity}_code` 等，禁止 `BIGINT AUTO_INCREMENT`）
+- [ ] 表包含 `create_time DATETIME NOT NULL`（无 `DEFAULT CURRENT_TIMESTAMP`，由后端推送）
+- [ ] 表包含 `last_modified_time DATETIME NOT NULL`（无 `DEFAULT`/`ON UPDATE`，由后端推送）
 - [ ] 表包含 `is_deleted TINYINT NOT NULL DEFAULT 0`
+- [ ] 表包含表级 `COMMENT` 与每个字段 `COMMENT`
+- [ ] 表未使用 `TEXT`/`JSON` 类型（或已评审确认豁免/分表方案）
+- [ ] 表未使用 `CONSTRAINT` 外键约束（引用完整性由后端校验）
+- [ ] 表未对 `is_deleted` 单独建索引
+- [ ] 易混淆字段（`status`、`name` 等）已加表源前缀
 - [ ] 删除操作走 `UPDATE ... SET is_deleted = 1`，无 `DELETE FROM`
 - [ ] 查询默认带 `is_deleted = 0` 过滤
+- [ ] 后端 create/update 路径已主动推送 `create_time` / `last_modified_time`
 - [ ] 若主张豁免 `is_deleted`，已注释说明理由
 
 ## 文档同步规则

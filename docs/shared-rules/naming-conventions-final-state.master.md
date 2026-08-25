@@ -1,9 +1,10 @@
 # API 命名规范终态母版
 
-> **生效日期**：2026-08-18
+> **生效日期**：2026-08-24（v2.0，基于数据库表重构与数据服务优化需求修订）
 > **状态**：终态（已落地三端）
 > **母版地位**：此文件为三端 `.trae/rules/naming-conventions.md` 中 API 命名章节的权威来源；修改时先更新此母版，再同步到三端副本。
 > **配套文档**：`pet-app-common/docs/requirements/命名规范过渡期收敛-实施计划与回滚方案.md`（Phase 1-5 均已完成）
+> **需求来源**：`pet-app-common/docs/requirements/2026-08-24-需求-数据库表重构与数据服务优化.md`
 
 ---
 
@@ -30,13 +31,14 @@
 
 | 类别 | 规范 | 示例 |
 |------|------|------|
-| 所有 API 响应字段 | **snake_case**，与数据库列名保持一致 | `order_id`, `user_id`, `created_at`, `pay_amount`, `avatar_url`, `invite_code`, `page_size`, `has_more` |
-| 主键/外键字段 | `{实体}_id`，与数据库一致 | `profile_id`, `sku_id`, `family_group_id` |
-| 时间字段 | `_at` / `_time` 后缀 | `created_at`, `updated_at`, `last_login_time`, `pay_time`, `expire_at` |
+| 所有 API 响应字段 | **snake_case**，与数据库列名保持一致 | `order_code`, `user_code`, `create_time`, `pay_amount`, `avatar_url`, `invite_code`, `page_size`, `has_more` |
+| 主键/外键字段 | 业务主键 `{实体}_code`，与数据库一致 | `user_code`, `pet_code`, `order_code`, `sku_code` |
+| 业务外键引用 | `{被引用实体}_code`，与数据库一致 | `user_code`（引用用户）、`pet_code`（引用宠物） |
+| 时间字段 | `create_time`（创建）/ `last_modified_time`（最后修改）/ 业务时间 `_time` 后缀 | `create_time`, `last_modified_time`, `last_login_time`, `pay_time`, `expire_time` |
 | 布尔字段 | `is_` / `has_` / `can_` 前缀 | `is_joint`, `is_new_user`, `is_hidden`, `is_online`, `can_invite` |
 | 分页字段 | `page`, `page_size`, `total`, `has_more`, `total_pages` | 一律 snake_case |
 | Token 字段 | `access_token`, `refresh_token`, `expires_in`, `token_type` | 禁止 `accessToken` / `expiresIn` |
-| 邀请字段 | `invite_code`, `invited_by_code`, `inviter_user_id` | 禁止 `inviteCode` / `invitedByCode` |
+| 邀请字段 | `invite_code`, `invited_by_code`, `inviter_user_code` | 禁止 `inviteCode` / `invitedByCode` |
 | JSON 快照内部字段 | 保留写入时的业务结构（非 API 命名范围） | `address_snapshot` 内部结构无需强制 snake_case |
 
 ### 常见错误对照
@@ -47,12 +49,12 @@
 | `refreshToken` | `refresh_token` |
 | `expiresIn` | `expires_in` |
 | `tokenType` | `token_type` |
-| `adminId` | `admin_id` |
+| `adminCode` | `admin_code` |
 | `lastLoginTime` | `last_login_time` |
 | `avatarUrl` | `avatar_url` |
 | `isNewUser` | `is_new_user` |
-| `createdAt` / `updatedAt` | `created_at` / `updated_at` |
-| `profileId` / `userId` | `profile_id` / `user_id` |
+| `createTime` / `lastModifiedTime` | `create_time` / `last_modified_time` |
+| `userCode` / `petCode` | `user_code` / `pet_code` |
 | `inviteCode` / `invitedByCode` | `invite_code` / `invited_by_code` |
 | `isJoint` | `is_joint` |
 | `qrLogin` | `qr_login` |
@@ -69,8 +71,8 @@
 
 ### 3.2 新增接口开发流程
 
-1. 数据库字段 → snake_case（已有规则，不变）
-2. Sequelize Model 定义 → 与数据库列名完全一致（snake_case）
+1. 数据库字段 → snake_case（已有规则，不变）；主键使用业务主键 `{entity}_code`，时间字段使用 `create_time`/`last_modified_time`（后端主动推送）
+2. Sequelize Model 定义 → 与数据库列名完全一致（snake_case）；`timestamps: false` 统一关闭，在 `beforeCreate`/`beforeUpdate` 钩子中主动写入 `create_time`/`last_modified_time`
 3. Controller/Service 拼装响应对象 → **所有键名 snake_case**，与 Model 字段保持一致
 4. `format*()` 辅助函数 → 返回对象键名一律 snake_case
 5. 调用 `success(res, data)` → 直接传，**不传 camelize 选项**
@@ -80,7 +82,7 @@
 
 ```bash
 # 新增代码后运行以下两条，确认无 camelCase 响应键
-grep -rn "^\s+(accessToken|refreshToken|expiresIn|tokenType|avatarUrl|isNewUser|createdAt|updatedAt|profileId|userId|inviteCode|invitedByCode|isJoint|qrLogin|adminId|lastLoginTime)\s*:" controllers/ services/ utils/ routes/
+grep -rn "^\s+(accessToken|refreshToken|expiresIn|tokenType|avatarUrl|isNewUser|createTime|lastModifiedTime|userCode|petCode|orderCode|inviteCode|invitedByCode|isJoint|qrLogin|adminCode|lastLoginTime)\s*:" controllers/ services/ utils/ routes/
 # 预期：无匹配项
 ```
 
@@ -96,8 +98,11 @@ grep -rn "^\s+(accessToken|refreshToken|expiresIn|tokenType|avatarUrl|isNewUser|
   console.log(this.user.isNewUser)         // is_new_user → isNewUser
   console.log(order.isJoint)               // is_joint → isJoint
   console.log(this.auth.accessToken)       // access_token → accessToken
+  console.log(this.user.userCode)          // user_code → userCode
+  console.log(this.pet.petCode)            // pet_code → petCode
+  console.log(this.order.createTime)      // create_time → createTime
   ```
-- 禁止在页面/组件代码中直接访问 snake_case 字段（`data.user_id`、`item.created_at`）。
+- 禁止在页面/组件代码中直接访问 snake_case 字段（`data.user_code`、`item.create_time`）。
   若需要兼容旧数据，应放在 `utils/` 或 `services/` 层做兼容处理，并标注为临时兼容。
 
 ### 4.2 请求参数发出
@@ -123,9 +128,10 @@ grep -rn "^\s+(accessToken|refreshToken|expiresIn|tokenType|avatarUrl|isNewUser|
 // src/types/order.ts
 // ✅ 推荐：响应类型使用 camelCase（与拦截器转换后的实际结构一致）
 export interface OrderListItem {
-  orderId: number
-  orderNo: string
-  createdAt: string
+  orderCode: string
+  userCode: string
+  createTime: string
+  lastModifiedTime: string
   payAmount: number
 }
 
@@ -133,7 +139,7 @@ export interface OrderListItem {
 export interface OrderListQuery {
   page?: number
   page_size?: number
-  status?: string
+  order_status?: string
   keyword?: string
 }
 ```
@@ -164,3 +170,4 @@ export interface OrderListQuery {
 | 版本 | 日期 | 说明 |
 |------|------|------|
 | v1.0 | 2026-08-18 | 终态首版。命名规范过渡期收敛 Phase 1-5 全部完成后发布，固化 1 层转换链路。 |
+| v2.0 | 2026-08-24 | 基于数据库表重构与数据服务优化需求修订：主键字段从 `{实体}_id` 改为业务主键 `{实体}_code`；时间字段从 `created_at`/`updated_at` 改为 `create_time`/`last_modified_time`；外键引用从 `{实体}_id` 改为 `{实体}_code`；更新常见错误对照、自检清单、前端消费示例、TypeScript 类型示例。 |
