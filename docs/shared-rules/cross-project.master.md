@@ -181,11 +181,18 @@ CREATE TABLE `order_main` (
 
 - **建表语句必须补充 COMMENT**：表级 `COMMENT` 与每个字段的 `COMMENT` 均不可省略。
 - 字段 `COMMENT` 需体现字段语义；枚举型字段需在 `COMMENT` 中标注取值映射（如 `'订单状态：10-待支付, 20-待发货'`）。
+- **时间字段 COMMENT**：`create_time` / `last_modified_time` 及其他业务时间字段（如 `pay_time`、`shipped_at`、`expire_at` 等）的 `COMMENT` 须包含备注"北京时间(UTC+8)，格式 yyyy-MM-dd HH:mm:ss"。
 
 ### 8. TEXT 与 JSON 类型规范
 
 - **避免使用 TEXT 类型**：数据库字段尽量不使用 `TEXT`（含 `LONGTEXT`/`MEDIUMTEXT`/`TINYTEXT`）类型；短文本改用 `VARCHAR(n)`，富文本/快照类评估子表或外部存储。
 - **避免使用 JSON 类型**：数据库字段尽量不使用 `JSON` 类型，亦尽量不使用"以 JSON 为内容格式的字符串"（如 `VARCHAR`/`TEXT` 存储 JSON 文本，命名常为 `*_json`、`content_json`、`extra_json`、`config_json` 等）；数组类改子表，结构化对象改扁平字段或子表。
+- **JSON 类型受控例外（数量限制 + 简单结构）**：在"具有明确数量限制"且"结构简单"的前提下，允许使用 `JSON` 类型存储以下场景数据（后端须在写入前校验数量与结构约束，字段 `COMMENT` 须标注结构说明与数量上限）：
+  - **简短字符串数组**：如标签 `['标签1','标签2','标签3']`（单元素字数上限 6 字，元素数量上限 5 个）
+  - **图像 URL 数组**：如 `['url1','url2']`（元素数量上限 6 张）
+  - **键值对对象数组**：如 `[{name:'a',count:1},{name:'b',count:3}]`（每个对象键值对数量上限 2 个，对象数量上限 3 个）
+  - **键值对对象**：如 `{'value1':1,'value2':2,'value3':3}`（键值对数量上限 6 个）
+  > 不满足"数量限制 + 简单结构"的结构化数据仍须改子表或扁平字段。
 - **分表确认机制**：若因避免使用 `TEXT`/`JSON` 导致单表字段过多或单行数据过大而需要分表，**必须先向用户询问确认分表方案**，不得擅自拆分。
 - **既有 TEXT/JSON 改造**：约 67 处字段需评估替代方案，分批改造；**该规范下的相关需求变更涉及范围大，必须由用户进行评估、评审、决策后进行**。
 - **豁免候选**：审计/流水表的动态详情字段（如 `admin_audit_log.detail_json`、`cron_task_execution_log.result_summary`）、微信响应快照字段（如 `refund_record.extra_json`）建议豁免（结构由第三方决定，扁平化成本高）。
@@ -216,7 +223,8 @@ CREATE TABLE `order_main` (
 - [ ] 表包含 `last_modified_time DATETIME NOT NULL`（无 `DEFAULT`/`ON UPDATE`，由后端推送）
 - [ ] 表包含 `is_deleted TINYINT NOT NULL DEFAULT 0`
 - [ ] 表包含表级 `COMMENT` 与每个字段 `COMMENT`
-- [ ] 表未使用 `TEXT`/`JSON` 类型（或已评审确认豁免/分表方案）
+- [ ] 时间字段 `COMMENT` 已包含"北京时间(UTC+8)，格式 yyyy-MM-dd HH:mm:ss"备注
+- [ ] 表未使用 `TEXT` 类型；`JSON` 类型仅用于受控例外（数量限制 + 简单结构，见 §8）
 - [ ] 表未使用 `CONSTRAINT` 外键约束（引用完整性由后端校验）
 - [ ] 表未对 `is_deleted` 单独建索引
 - [ ] 易混淆字段（`status`、`name` 等）已加表源前缀
